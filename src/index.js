@@ -10,7 +10,7 @@ connectDB()
             console.log("ERROR: ", error);
             throw error
         })
-    app.listen(process.env.PORT || 8000, ()=>{
+    app.listen(process.env.PORT || 5000, ()=>{
         console.log(`listening at port: ${process.env.PORT}`);
     })
 })
