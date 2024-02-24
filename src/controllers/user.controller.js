@@ -3,6 +3,7 @@ import {ApiError} from '../utils/ApiError.js'
 import {User} from '../models/user.model.js'
 import {uploadOnCloudinary} from '../utils/cloudinary.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
+import jwt from "jsonwebtoken";
 
 
 // we can also directly access them but we created this function .
@@ -138,10 +139,7 @@ const loginUser = asyncHandler(async(req, res)=>{
         secure: true
     }  
 
-    return res.status(200)
-    .cookie("accessToken",accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
-    .json(
+    return res.status(200).cookie("accessToken",accessToken, options).cookie("refreshToken", refreshToken, options).json(
         new ApiResponse(200,{
             user: loggedInUser,
             accessToken,
@@ -178,6 +176,42 @@ const logoutUser = asyncHandler(async(req, res)=>{
     .json(new ApiResponse(200, {}, "User logged out Successfully !!!"))
 
     
+})
+
+// this endpoint is used when users access token get expire.
+const refreshAccessToken = asyncHandler(async(req, res)=>{
+    
+    const existingRefreshToken = req.cookie?.refreshToken || req.body.refreshToken
+
+    const decodedInfo = jwt.verify(existingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
+
+    if (!decodedInfo) {
+        throw new ApiError(401, "Refresh token not verified !!!")
+    }
+    
+    const user = await User.findById(decodedInfo?._id)
+    if (!user) {
+        throw new ApiError(401, "Invalid refresh token !!!")
+    }
+
+    if (existingRefreshToken !== user.refreshToken) {
+        throw new ApiError(401, "Refresh token expired !!!")
+    }
+
+    const {accessToken, newRefreshToken} = generateAccessAndRefreshTokens(user._id)
+
+    return res.status(200).cookie("accessToken", accessToken, options).cookie("refreshToken", newRefreshToken, options).json(
+        new ApiResponse(
+            200,
+            {
+                accessToken, refreshToken: newRefreshToken
+            },
+            "Access token refreshed !!!"
+        )
+    )
+
+
+
 })
 
 export {registerUser, loginUser, logoutUser}
